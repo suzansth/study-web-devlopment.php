@@ -1,48 +1,57 @@
 import streamlit as st
+import pandas as pd
+from datetime import datetime
+import numpy as np
 
-class Employee:
-    def __init__(self, name, company, hourly_wage):
-        self.name = name
-        self.company = company
-        self.hourly_wage = hourly_wage
-        self.total_hours = 0
-        self.total_earnings = 0
+# Function to calculate total salary
+def calculate_salary(hours, rate):
+    return hours * rate
 
-    def log_hours(self, hours):
-        self.total_hours += hours
-        self.total_earnings += hours * self.hourly_wage
+# Initialize session state for storing work hours data
+if 'work_hours' not in st.session_state:
+    st.session_state.work_hours = []
 
-    def get_total_earnings(self):
-        return self.total_earnings
+# Title of the app
+st.title("WorkHour")
 
-    def get_total_hours(self):
-        return self.total_hours
+# Input form for logging work hours
+with st.form(key='log_hours_form'):
+    date = st.date_input("Date", datetime.today())
+    hours = st.number_input("Hours Worked", min_value=0.0, step=0.5)
+    rate = st.number_input("Hourly Rate", min_value=0.0, step=0.5)
+    submit_button = st.form_submit_button(label='Log Hours')
 
-def main():
-    st.title("Employee Time Tracking")
+    if submit_button:
+        st.session_state.work_hours.append({
+            "Date": date,
+            "Hours Worked": hours,
+            "Hourly Rate": rate,
+            "Salary": calculate_salary(hours, rate)
+        })
+        st.success(f"Logged {hours} hours at rate ¥{rate} on {date}")
 
-    # Get employee information
-    name = st.text_input("Enter your name")
-    company = st.text_input("Enter your company name")
-    hourly_wage = st.number_input("Enter your hourly wage", min_value=0.0, step=0.01)
+# Display logged work hours
+if st.session_state.work_hours:
+    df = pd.DataFrame(st.session_state.work_hours)
+    st.subheader("Logged Work Hours")
+    st.table(df)
 
-    # Create the employee
-    employee = Employee(name, company, hourly_wage)
+    # Display total salary
+    total_salary = df['Salary'].sum()
+    st.subheader(f"Total Salary: ¥{total_salary:.2f}")
 
-    # Log hours
-    st.header("Log Your Hours")
-    hours = st.number_input("Enter hours worked", min_value=0.0, step=0.1)
-    if st.button("Log Hours"):
-        employee.log_hours(hours)
-        st.success(f"Logged {hours} hours for {employee.name} at {employee.company}.")
+    # Download button
+    st.download_button(
+        label="Download Data as CSV",
+        data=df.to_csv(index=False).encode('utf-8'),
+        file_name='work_hours.csv',
+        mime='text/csv',
+    )
 
-    # Display employee details
-    st.header("Your Details")
-    st.write(f"Name: {employee.name}")
-    st.write(f"Company: {employee.company}")
-    st.write(f"Hourly Wage: ${employee.hourly_wage:.2f}")
-    st.write(f"Total Hours: {employee.get_total_hours()}")
-    st.write(f"Total Earnings: ${employee.get_total_earnings():.2f}")
+    # Generate and display charts
+    st.subheader("Work Hours Chart")
+    st.bar_chart(df.set_index("Date")["Hours Worked"])
 
-if __name__ == "__main__":
-    main()
+    st.subheader("Cumulative Salary Chart")
+    df['Cumulative Salary'] = np.cumsum(df['Salary'])
+    st.line_chart(df.set_index("Date")["Cumulative Salary"])
